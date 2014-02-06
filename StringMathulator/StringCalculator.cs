@@ -5,70 +5,68 @@ using System.Linq;
 
 namespace StringMathulator
 {
+    using System.Reflection;
+
     public class StringCalculator
     {
-        public int Add(string numbers)
+        private static string Reverse(string s)
         {
-            if (string.IsNullOrEmpty(numbers))
-            {
-                return 0;
-            }
-
-            if (numbers.Length == 1)
-            {
-                return int.Parse(numbers);
-            }
-
-            var preparedInput = PrepareInput(numbers);
-
-            var inputAsNumbers = ConvertToNumbers(preparedInput).ToArray();
-
-            CheckForNegatives(inputAsNumbers);
-
-            return inputAsNumbers.Where(n => n <= 1000).Sum();
+            char[] charArray = s.ToCharArray();
+            Array.Reverse(charArray);
+            return new string(charArray);
         }
 
-        private static IEnumerable<int> ConvertToNumbers(CalcConfig calcConfig)
+        //properties exposed as fields to allow passing as ref
+        struct StringsToAdd
         {
-            var allNumbers = new List<int>();
-            foreach (var numberLine in calcConfig.CalcInput)
-            {
-                allNumbers.AddRange(numberLine.Split(calcConfig.Separator, StringSplitOptions.None).Select(n => Convert.ToInt32(n)));
-            }
-            return allNumbers;
+            internal string Longest;
+            internal string Shortest;
         }
 
-        private static void CheckForNegatives(int[] number)
+        public static string Add(string left, string right)
         {
-            if (!number.Any(n => n < 0)) return;
+            left = Reverse(left);
+            right = Reverse(right);
 
-            var negatives = number.Where(s => s < 0).Select(n=>n.ToString(CultureInfo.InvariantCulture)).Aggregate((l, r) => l + "," + r);
-            throw new Exception("negatives not allowed " + negatives);
-        }
+            var stringsToAdd = GetStringsToAdd(left, right);
 
-        private static CalcConfig PrepareInput(string numbers)
-        {
-            var numbersLines = numbers.Split('\n');
-            if (numbersLines.Length == 0)
+            var accumulator = "";
+            var carryForward = 0;
+
+            while (stringsToAdd.Longest.Length > 0)
             {
-                return new CalcConfig();
-            }
-
-            var separatorLine = numbersLines[0];
-            if (separatorLine.StartsWith("//") && separatorLine.Length > 2)
-            {
-                return new CalcConfig
-                    {
-                        Separator = SeparatorParser.Parse(separatorLine.Substring(2)),
-                        CalcInput = numbersLines.Skip(1)
-                    };
-            }
-            
-            return new CalcConfig
+                var first = GetAndRemoveFirstCharacter(ref stringsToAdd.Longest);
+                var second = GetAndRemoveFirstCharacter(ref stringsToAdd.Shortest);
+                var thisTotal = int.Parse(first) + int.Parse(second) + carryForward;
+                if (thisTotal < 10)
                 {
-                    Separator = new[] {","},
-                    CalcInput = numbersLines
-                };
+                    accumulator += thisTotal.ToString(CultureInfo.InvariantCulture);
+                    carryForward = 0;
+                    continue;
+                }
+                accumulator += thisTotal % 10;
+                carryForward = thisTotal /= 10;
+            }
+            return Reverse(accumulator);
+        }
+
+        private static StringsToAdd GetStringsToAdd(string left, string right)
+        {
+            return left.Length >= right.Length
+                ? new StringsToAdd { Longest = left, Shortest = right }
+                : new StringsToAdd { Longest = right, Shortest = left };
+        }
+
+        private static string GetAndRemoveFirstCharacter(ref string s)
+        {
+            if (s.Length == 0)
+            {
+                return "0";
+            }
+
+            var first = s.Substring(0, 1);
+            s = s.Remove(0, 1);
+            return first;
         }
     }
 }
